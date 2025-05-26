@@ -11,7 +11,7 @@ class TotalLoss(nn.Module):
 
     def __init__(self, coord_loss_weight=1.0,
                  rot_loss_weight=10000.0,
-                 theta_loss_weight=100.0):
+                 theta_loss_weight=5000.0):
         """
         :param coord_loss_weight: 坐标损失的权重
         :param rot_loss_weight: 旋转损失的权重
@@ -30,7 +30,7 @@ class TotalLoss(nn.Module):
         self.bce_loss = nn.BCELoss()
         # criterion = nn.SmoothL1Loss()  # 平滑L1损失函数收敛有点慢
     def forward(self, pred_coords, gt_coords,
-                pred_rot, gt_rot
+                pred_rot=None, gt_rot=None,
              ):
         """
         计算总体损失，同时返回各部分的损失值。
@@ -48,19 +48,24 @@ class TotalLoss(nn.Module):
         # 坐标损失：整体位置的均方误差
         loss_coord = self.mse_loss(pred_coords, gt_coords)
 
+        if pred_rot!=None:
+            # 如果需要，可以转换为旋转矩阵后计算 geodesic 距离
+            loss_rot = self.mse_loss(pred_rot, gt_rot)
+            # 计算旋转向量的角度损失
+            loss_theta = self.mse_loss(torch.norm(pred_rot, dim=-1, keepdim=True), torch.norm(gt_rot, dim=-1, keepdim=True))
 
-        # 如果需要，可以转换为旋转矩阵后计算 geodesic 距离
-        loss_rot = self.mse_loss(pred_rot, gt_rot)
-        # 计算旋转向量的角度损失
-        loss_theta = self.mse_loss(torch.norm(pred_rot, dim=-1, keepdim=True), torch.norm(gt_rot, dim=-1, keepdim=True))
 
+            total_loss = (self.coord_loss_weight * loss_coord +
+                          self.rot_loss_weight * loss_rot +
+                          self.theta_loss_weight * loss_theta
+                          )
+            return total_loss, loss_coord, loss_rot, loss_theta
 
-        total_loss = (self.coord_loss_weight * loss_coord +
-                      self.rot_loss_weight * loss_rot +
-                      self.theta_loss_weight * loss_theta
-                      )
+        else:
+            total_loss = self.coord_loss_weight * loss_coord
 
-        return total_loss, loss_coord, loss_rot, loss_theta
+            return total_loss, loss_coord
+
 
 # 使用示例
 if __name__ == '__main__':

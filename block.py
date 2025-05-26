@@ -156,10 +156,10 @@ class LinearResBlock(nn.Module):
 
 
 class Encoders(nn.Module):
-    def __init__(self, d_model, n_heads, d_ff, num_layers, cross_feature=False):
+    def __init__(self, d_model, n_heads, d_ff, num_layers, input_size=7,cross_feature=False):
         super(Encoders, self).__init__()
         self.cross_feature = cross_feature
-        self.fc1 = nn.Linear(7, d_model)
+        self.fc1 = nn.Linear(input_size, d_model)
         self.layers = nn.ModuleList([EncoderLayer(d_model, n_heads, d_ff) for _ in range(num_layers)])
 
     def forward(self, x):
@@ -362,7 +362,7 @@ class pre_coords(nn.Module):
         return pred_coords, trans_out, rot_vec, radius_pred_expanded
 
 class DualBranchTimeSeriesPredictor(nn.Module):
-    def __init__(self, d_model=256, n_heads=8, d_ff=512, num_layers=3, input_dim=7, seq_len=40, pred_len=10):
+    def __init__(self, d_model=256, n_heads=8, d_ff=512, num_layers=3, input_dim=7, seq_len=10, pred_len=10):
         """
         input_size: 输入时序长度（特征数可以根据实际情况扩展）
         hidden_size: 隐藏层维度
@@ -373,7 +373,7 @@ class DualBranchTimeSeriesPredictor(nn.Module):
         self.output_steps = pred_len
 
         # 叠加多个 Encoder 层
-        self.encoders = Encoders(d_model, n_heads, d_ff, num_layers)
+        self.encoders = Encoders(d_model, n_heads, d_ff, num_layers,input_size=input_dim)
 
         # 位置预测
         self.pre_coords = pre_coords(seq_len, pred_len, d_model)
@@ -396,6 +396,38 @@ class DualBranchTimeSeriesPredictor(nn.Module):
         pred_coords, trans_out, rot_vec, radius_pred_expanded =self.pre_coords(x)
 
         return pred_coords, trans_out, rot_vec, radius_pred_expanded, class_pred_expanded
+
+
+### 纯transformer
+class TimeSeriesTransformer(nn.Module):
+    def __init__(self,input_size, output_size, input_dim=4, d_model=256, n_heads=8, d_ff=256, num_layers=3):
+        super(TimeSeriesTransformer, self).__init__()
+        self.input_size = input_size
+        self.output_size = output_size
+        self.d_model = d_model
+
+        # 线性层映射输入维度到 d_model
+        self.fc1 = nn.Linear(input_dim, d_model)  # 4 维（时间和坐标）-> d_model 维
+
+        # 叠加多个 Encoder 层
+        self.encoders = nn.ModuleList([EncoderLayer(d_model, n_heads, d_ff) for _ in range(num_layers)])
+        # 线性层将 Transformer 输出变换为最终预测值（输出维度为 output_size）
+        self.fc_out = nn.Linear(d_model, 3)
+
+    def forward(self, x):
+        x = self.fc1(x)  # (batch_size, seq_len, d_model)
+        residual = x
+        for encoder in self.encoders:
+            x = encoder(x)  # (batch_size, seq_len, d_model)
+
+        # 残差连接 + 直接输出所有时间步
+        x = x + residual  # (batch_size, seq_len, d_model)
+
+        x = self.fc_out(x)  # (batch_size, seq_len, output_size)
+
+        # 取后 output_size 个时间步作为预测结果
+        x = x[:, -self.output_size:, :]  # (batch_size, output_size, 1)
+        return x.squeeze(-1)  # (batch_size, output_size)
 
 
 # 示例用法
