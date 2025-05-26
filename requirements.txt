@@ -1,4 +1,4 @@
 ultralytics
 opencv-python
 numpy
-openvino == 2021.6.0
+openvino == 2024.6.0
