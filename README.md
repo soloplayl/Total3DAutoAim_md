@@ -1,3 +1,72 @@
+# *快速上手指南之python篇*
+- ### *python 环境部署*
+- 安装miniconda
+- conda create -n rm python==3.9.1
+- conda activate rm
+- pip install -r requirements.txt
+- 有gpu的请安装了自行安装cuda和cudnn以及pytorch的cuda版本。
+- ### *命令行调用*
+- 在conda创建rm环境目录下使用使用终端调用代码查看帮助信息
+```bash
+python aim_cmd.py -h 
+```
+- 训练自己的数据集请保存文本格式数据集，支持三种数据集格式第一种[时间戳**t**, 自身车辆坐标系下的**x**, 自身车辆坐标系下的**y**, 自身车辆坐标系下的**z**, 旋转向量**rot**]单位默认是
+[s, mm, mm, mm, rad]的n行7列的txt格式数据集, 第二种是[t,x,y,z]的n行4列的txt格式数据集，
+第三种是[x,y,z]的n行3列txt格式数据集。对应的要改**feature_dim**=7/4/3。
+- 下面展示采用[x,y,z]数据集的命令行，这种最方便。**data_path**就是你保存数据集的相对地址或者绝对地址。
+**unit**=mm代表你的数据单位是mm，如果是m请使用**unit**=m具体参数详细意思参考aim_cmd.py的config介绍。
+```bash
+python aim_cmd.py mode=train input_dim=3 input_size=20 outputsize=10 offset=36 data_path=model/datasets/processed_log.txt unit=mm model_path=model/Total_predictor.pth
+```
+- 下面展示如何将训练好的模型去预测数据并查看效果
+```bash
+python aim_cmd.py mode=predict data_path=model/datasets/processed_log.txt unit=mm model_path=model/Total_predictor.pth
+```
+- 下面展示如何将训练好的模型导出为onnx和openvino模型
+```bash
+python aim_cmd.py mode=export data_path=model/datasets/processed_log.txt model_path=model/Total_predictor.pth 
+```
+- 如果没有自己的数据集也可以仿真生成数据集，下面展示如何生成装甲板数据集和能量机关数据集
+```bash
+python aim_cmd.py mode=vane_generate data_path=model/datasets/processed_log.txt unit=mm model_path=model/Total_predictor.pth
+```
+- **注:** 也可以直接对aim_cmd.py的default_config进行修改，修改后直接运行aim_cmd.py即可。
+- ## *cmd配置参数说明*
+
+| 参数名称 | 含义说明 | 可选值/格式 | 默认值 |
+|---------|---------|-------------|-------|
+| **mode** | 运行模式 | `'train'`(训练), `'predict'`(预测), `'export'`(导出模型), `'vane_generate'`(能量机关数据生成), `'armor_generate'`(装甲板数据生成) | `'train'` |
+| **data_path** | 数据集文件路径 | 文件路径字符串 | `'model/datasets/processed_log.txt'` |
+| **feature_dim** | 数据特征维度 | `7`(t,x,y,z,rot), `4`(t,x,y,z), `3`(x,y,z) | `3` |
+| **input_size** | 输入时间序列长度 | 整数 (示例: 20 = 20×0.0125s = 0.25s) | `20` |
+| **output_size** | 预测时间序列长度 | 整数 (示例: 10 = 10×0.0125s = 0.125s) | `10` |
+| **offset** | 预测窗口时间偏移量 | 整数 (示例: 36 = 36×0.0125s = 0.45s) | `36` |
+| **batch_size** | 训练批大小 | 整数 | `1024` |
+| **test_ratio** | 测试集比例 | 0-1之间的浮点数 | `0.2` |
+| **epochs** | 训练轮数 | 整数 | `1000` |
+| **lr** | 学习率 | 浮点数 | `0.001` |
+| **patience** | 早停机制等待轮数 | 整数 | `30` |
+| **model_type** | 使用的模型类型 | `'DualBranchTimeSeriesPredictor'`, `'vane_transformer'` | `'DualBranchTimeSeriesPredictor'` |
+| **total_transformer_save_path** | 完整模型保存路径 | 文件路径 | `'model/vane_model/total_Predictor.pth'` |
+| **vane_transformer_save_path** | 能量机关模型保存路径 | 文件路径 | `'model/vane_model/vane_Predictor.pth'` |
+| **d_model** | Transformer特征维度 | 整数 (建议值: 256-512) | `256` |
+| **n_heads** | 注意力机制头数 | 整数 (常用2的幂次) | `8` |
+| **d_ff** | 前馈网络维度 | 整数 (能量机关建议256，自瞄建议512) | `512` |
+| **num_layers** | Transformer编码器层数 | 整数 (通常3-6层) | `3` |
+| **eta_min** | 余旋退火最小学习率 | 浮点数 | `0.0000001` |
+| **data_mode** | 数据类型模式 | `'txt'`(自建数据集), `'vane'`(能量机关数据), `'armor'`(装甲板数据) | `'txt'` |
+| **unit** | 数据单位 | `'mm'`(毫米), `'m'`(米) | `'mm'` |
+| **vision** | 预测模式是否显示可视化 | 布尔值 | `False` |
+| **sample** | 数据采样数量 | 整数或`None`(全部数据) | `None` |
+
+# 快速上手指南之c++篇
+- ### *c++ 环境部署* 请拥有cmake,opencv以及openvino
+- 安装openvino请使用openvino的归档文件安装且版本为2024.6.0。
+- 在c++_AutoAim_example中build的终端中使用如下命令行即可完成示例操作。
+```bash
+cmake.. && make -j8 && ./Total3DAutoAim_CPPInference
+```
+
 # 代码的结构
 - block.py是包含两种预测模型的主体代码，包含了模型的定义。
 - armor_train.py是自瞄和能量机关统一可以模型的训练代码，包含了模型的训练和验证过程。
@@ -8,13 +77,12 @@
 - vane_predicted.py是能量机关模型和统一模型(未采用旋转向量当特征输入，可自行启用)的测试代码，包含了模型的测试和评估过程。
 - export.py是模型的导出openvino模型的代码，包含了模型的导出过程。
 - utils是模型的工具函数代码，包含了模型的工具函数的定义。其中generate_dataset.py和generate_dataset_vane.py分别是自瞄模拟数据集和能量机关模拟数据的生成代码。
-# python 环境部署
-- pip install -r requirements.txt
+
 # 统一模型的结构
-注:能量机关模型仅使用的t,x,y,z和transformerencoder的特征提取部分，输出为预测坐标数据属于统一模型的一部分因此不再介绍。主要介绍如何加强自瞄和能量机关同时都能学习的模型。
+注:能量机关模型仅使用的x,y,z和transformerencoder的特征提取部分，输出为预测坐标数据属于统一模型的一部分因此不再介绍。主要介绍如何加强自瞄和能量机关同时都能学习的模型。
 ```mermaid
  graph TD
-     A[输入数据 batch,seq_len,7] --> B[Encoders特征提取]
+     A[输入数据 batch,seq_len,数据维度] --> B[Encoders特征提取]
      B -->|编码特征| C[pre_coords坐标预测分支]
      B -->|编码特征| D[class_fc分类预测分支]
      
@@ -48,7 +116,7 @@
      end
  
      subgraph Encoders结构
-         B1[线性投影 7→d_model]
+         B1[线性投影 数据维度→d_model]
          B1 --> B2[多层Transformer编码器]
          B2 -->|输出| B3[编码特征 batch,seq_len,d_model]
      end
@@ -66,7 +134,10 @@
  ```
 ### 了解模型搭建原理先验知识需要知道罗德里格斯公式(旋转向量转旋转矩阵)，旋转向量和旋转矩阵的定义和关系，平移向量的定义(可以参考https://zhuanlan.zhihu.com/p/141597984和https://zhuanlan.zhihu.com/p/433389563)
 ### 改进模型网络代码先验知识需要知道卷积和全连接，resnet，transformer，SGD，Adam,TCN即可。
-- 模型的输入是[ batch=batch_size, seq_len=输入数据的时间步,这个可以自定义, 7=[[t-t[0],x-x[0],y-[0],z-[0],rot]] ]。可以看出模型输入数据实际上是都减去的初始值也就是减去比如收集10个数据的初值(除旋转向量不减)，因此我们数据的坐标系此时是第一个装甲作为初始点的坐标系，也就是我下面图中写到目标装甲板坐标系，所以需要保存第一个数据的值即为初值用来还原为自身车坐标系数据。
+- 模型的输入是[ batch=batch_size, seq_len=输入数据的时间步,这个可以自定义, 3=[[x-x[0],y-[0],z-[0]]],模型支持监督训练其他输出对应的loss，可以增加输入特征维度。
+可以看出模型输入数据实际上是都减去的初始值也就是减去比如收集10个数据的初值(除旋转向量不减)，
+因此我们数据的坐标系此时是第一个装甲作为初始点的坐标系，
+也就是我下面图中写到目标装甲板坐标系，所以真实推理时需要保存第一个数据的值即为初值用来还原为自身车坐标系数据。
 - 首先在目标车中心坐标系下预测装甲板的初始位置P0，具体为预测了装甲板的旋转半径radius以及球极坐标系下的倾斜角phi和方位角theta，映射为的xyz装甲板初始位置。
 - 如果预测平面坐标预测一个角度即可(有尝试效果欠佳)，但是这样高度为0的预测效果较差，因为本身装甲板初始位置不一定在球xy平面上，而且球坐标不仅可以矫正初始装甲板位置也可以预测能量机关的初始相位和旋转。
 ```python
@@ -84,6 +155,7 @@
 ## 真实数据集的采集和使用
 - c++可以用cnpy库收集数据，数据的格式为npy格式，数据的格式
 - c++代码cnpy的使用方法举例 但是收集的类别名称需要变成t,x，y，z，rot或者修改train.py中的create_dataset函数读取数据格式
+- 也可以使用txt文本格式保存为[t,x,y,z,roll,yaw],具体可以改
 ```cpp
         if (!all_tvecs.empty() && save_data && all_tvecs.size() % 100 == 0)
         {

@@ -412,18 +412,19 @@ class TimeSeriesTransformer(nn.Module):
         # 叠加多个 Encoder 层
         self.encoders = nn.ModuleList([EncoderLayer(d_model, n_heads, d_ff) for _ in range(num_layers)])
         # 线性层将 Transformer 输出变换为最终预测值（输出维度为 output_size）
-        self.fc_out = nn.Linear(d_model, 3)
+        self.fc2 = nn.Linear(d_model, d_model//2)
+        self.fc_out = nn.Linear(d_model//2, 3)
 
     def forward(self, x):
         x = self.fc1(x)  # (batch_size, seq_len, d_model)
-        residual = x
+        # residual = x
         for encoder in self.encoders:
             x = encoder(x)  # (batch_size, seq_len, d_model)
 
         # 残差连接 + 直接输出所有时间步
-        x = x + residual  # (batch_size, seq_len, d_model)
+        # x = x + residual  # (batch_size, seq_len, d_model)
 
-        x = self.fc_out(x)  # (batch_size, seq_len, output_size)
+        x = self.fc_out(self.fc2(x))  # (batch_size, seq_len, output_size)
 
         # 取后 output_size 个时间步作为预测结果
         x = x[:, -self.output_size:, :]  # (batch_size, output_size, 1)

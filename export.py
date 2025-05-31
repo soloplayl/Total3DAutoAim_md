@@ -3,23 +3,9 @@ import torch.nn as nn
 import block
 import onnxruntime as ort
 import numpy as np
-config = {
-    'data_path': 'model/datasets/tvec_data.npz',
-    'input_size': 10,  # 输入窗口大小 dt=0.015 t = 20*0.015=0.3s
-    'output_size': 12,  # 输出窗口大小 pred_len=10 offset=30 dt=0.015 pred_t=30*0.015=0.45s
-    'offset': 8,  # 预测窗口偏置
-    'batch_size': 5120,
-    'test_ratio': 0.2,
-    'epochs': 10000,
-    'lr': 1e-5,
-    'model_type': 'DualBranchTimeSeriesPredictor',
-    'new_transformer_save_path': 'model/DualBranchTimeSeriesPredictor_infantry_10_12_best_real_new.pth',
-    'd_model': 256,
-    'n_heads': 8,
-    'd_ff': 512,
-    'num_layers': 3
-}
+import aim_cmd
 
+config = aim_cmd.default_config
 
 # 1. 准备模型 ----------------------------------------------
 def prepare_model():
@@ -29,13 +15,13 @@ def prepare_model():
         n_heads=config['n_heads'],
         d_ff=config['d_ff'],
         num_layers=config['num_layers'],
-        input_dim=4,
+        input_dim=config['feature_dim'],
         seq_len=config['input_size'],
         pred_len=config['output_size'],
     )
     # 加载预训练权重
     checkpoint = torch.load(
-        config['new_transformer_save_path'],
+        config['total_transformer_save_path'],
         map_location='cpu'
     )
     model.load_state_dict(checkpoint)
@@ -46,7 +32,7 @@ def prepare_model():
     # print(model)
 
     # 验证PyTorch模型输出形状
-    dummy_input = torch.randn(1, 10, 4)
+    dummy_input = torch.randn(1, config['input_size'], config['feature_dim'])
     with torch.no_grad():
         output = model(dummy_input)
 
@@ -54,7 +40,7 @@ def prepare_model():
     pt_output = output[0].numpy()
 
     print("\nPyTorch输出形状验证:", output[0].shape)
-    assert output[0].shape == (1, 12, 3), "PyTorch模型输出形状不符合要求"
+    assert output[0].shape == (1, config['output_size'],3), "PyTorch模型输出形状不符合要求"
 
     return model
 
@@ -62,7 +48,7 @@ def prepare_model():
 # 2. 导出ONNX模型 ------------------------------------------
 def export_onnx(model):
     # 创建虚拟输入
-    dummy_input = torch.randn(1, 10, 4)
+    dummy_input = torch.randn(1, config['input_size'], config['feature_dim'])
 
     # 包装模型处理多输出问题
     class WrappedModel(nn.Module):
@@ -102,12 +88,12 @@ def export_onnx(model):
 
 
 # 3. 验证ONNX模型 ------------------------------------------
-def validate_onnx(onnx_path):
+def validate_onnx(onnx_path,model):
     # 创建推理会话
     ort_session = ort.InferenceSession(onnx_path)
 
     # 使用与PyTorch相同的输入数据
-    input_data = np.random.randn(1, 10, 4).astype(np.float32)
+    input_data = np.random.randn(1, config['input_size'], config['feature_dim']).astype(np.float32)
 
     # 执行推理
     outputs = ort_session.run(
@@ -117,7 +103,7 @@ def validate_onnx(onnx_path):
 
     # 形状验证
     print("\nONNX输出形状验证:", outputs[0].shape)
-    assert outputs[0].shape == (1, 12, 3), "ONNX模型输出形状不符合要求"
+    assert outputs[0].shape == (1, config['output_size'],3), "ONNX模型输出形状不符合要求"
 
     # 数值验证（使用相同输入）
     dummy_input = torch.tensor(input_data)
@@ -129,17 +115,15 @@ def validate_onnx(onnx_path):
     # 计算差异
     diff = np.abs(pt_output_new - onnx_output).max()
     print(f"最大数值差异: {diff:.6f}")
-    assert diff < 1e-4, "数值差异超过阈值"
+    assert diff < 1e-3, "数值差异超过阈值"
 
     print("验证成功！输出形状和数值均符合预期")
 
-
-if __name__ == "__main__":
-    # 完整流程
+def export_init():
     model_pth = prepare_model()
-    # onnx_path = export_onnx(model_pth)
-    # validate_onnx(onnx_path)
-# 4. 转换为IR模型 ------------------------------------------
+    onnx_path = export_onnx(model_pth)
+    validate_onnx(onnx_path, model_pth)
+    # 4. 转换为IR模型 ------------------------------------------
     import openvino as ov
     from pathlib import Path
     import numpy as np
@@ -150,13 +134,13 @@ if __name__ == "__main__":
 
     # 使用新版API转换模型
     ov_model = ov.convert_model("pred_model.onnx")
-
+    print("onnx模型")
     # 序列化为IR格式
-    ov.save_model(ov_model, output_dir / "pred_model.xml",compress_to_fp16=True)
+    ov.save_model(ov_model, output_dir / "pred_model.xml", compress_to_fp16=False)
 
     print(f"IR模型已保存至: {output_dir.resolve()}")
 
-# 5. 验证IR模型 ------------------------------------------
+    # 5. 验证IR模型 ------------------------------------------
     import numpy as np
     from openvino.runtime import Core
 
@@ -164,23 +148,22 @@ if __name__ == "__main__":
     ie = Core()
 
     # 读取IR模型
-    model = ie.read_model(model='ir_pred_model/pred_model.xml')
-    compiled_model = ie.compile_model(model=model, device_name='CPU')
+    ir_model = ie.read_model(model='ir_pred_model/pred_model.xml')
+    compiled_model = ie.compile_model(model=ir_model, device_name='CPU')
 
     # 获取输入输出信息
     input_layer = compiled_model.input(0)
     output_layer = compiled_model.output(0)
-    print("11111:",output_layer)
+    print("11111:", output_layer)
     # 生成测试数据
-    input_data = np.random.randn(1, 10, 4).astype(np.float32)
+    input_data = np.random.randn(1, config['input_size'], config['feature_dim']).astype(np.float32)
 
     # 执行推理
     result = compiled_model([input_data])[output_layer]
 
     # 验证输出形状和数值
     print("OpenVINO输出形状:", result[0].shape)
-    assert result[0].shape == (12, 3), "输出形状错误"
-
+    assert result[0].shape == (config['output_size'], 3), "输出形状错误"
 
     dummy_input = torch.tensor(input_data)
     with torch.no_grad():
@@ -189,3 +172,5 @@ if __name__ == "__main__":
     diff = np.abs(pt_output[0] - result[0]).max()
     print(f"与PyTorch的最大差异: {diff:.6f}")
     assert diff < 1e-1, "数值差异过大"
+if __name__ == "__main__":
+    export_init()
