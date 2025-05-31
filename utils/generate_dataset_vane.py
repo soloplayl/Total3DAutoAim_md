@@ -49,15 +49,17 @@ def generate_dataset(num_samples, config):
             config['max_perturbation'],
             size=config['n_points'] - 1
         )
-
+        t_base = np.random.uniform(0,  3)
         t = np.concatenate((
-            [config['start_time']],
-            config['start_time'] + np.cumsum(intervals)
+            [t_base],
+            t_base + np.cumsum(intervals)
         ))
         # print(t)
         # 计算角度值
         if is_uniform:
             theta = (omega * t) % (2 * np.pi)
+
+            print("theta[0]:",theta[0])
         else:
             phase = omega * t + phi
             cos_term = -a / omega * np.cos(phase)
@@ -84,11 +86,11 @@ CONFIG = {
     'start_time': 0.5,
     'base_interval': 0.0125, # 基础时间间隔（秒）
     'max_perturbation': 0.002, # 最大扰动（秒）
-    'samples': 5000,  # 生成样本数量
+    'samples': 1000,  # 生成样本数量
     'n_points': 500, # 每个样本的时间点数量
     'linear_coeff': 2.090,
     'noise_level': 0.01,
-    'uniform_ratio': 0.5  # 匀角速度样本占比（0.5表示50%）
+    'uniform_ratio': 0.4  # 匀角速度样本占比（0.5表示50%）
 }
 
 # 示例使用
