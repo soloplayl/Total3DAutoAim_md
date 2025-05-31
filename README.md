@@ -39,31 +39,31 @@ python aim_cmd.py mode=train data_mode=vane_generate input_dim=3 input_size=20 o
 - **注:** 也可以直接对aim_cmd.py的default_config进行修改，修改后直接运行aim_cmd.py即可。
 - ## *cmd配置参数说明*
 
-| 参数名称 | 含义说明 | 可选值/格式                                                                                              | 默认值 |
-|---------|---------|-----------------------------------------------------------------------------------------------------|-------|
+| 参数名称 | 含义说明 | 可选值/格式                                                                                                     | 默认值 |
+|---------|---------|------------------------------------------------------------------------------------------------------------|-------|
 | **mode** | 运行模式 | `'train'`(训练), `'predict'`(预测), `'export'`(导出模型), `'vane_generate'`(能量机关数据生成), `'armor_generate'`(装甲板数据生成) | `'train'` |
-| **data_path** | 数据集文件路径 | 文件路径字符串                                                                                             | `'model/datasets/processed_log.txt'` |
-| **feature_dim** | 数据特征维度 | `7`(t,x,y,z,rot), `6`(x,y,z,rx,ry,rz), `4`(t,x,y,z), `3`(x,y,z)                                     | `3` |
-| **input_size** | 输入时间序列长度 | 整数 (示例: 20 =  收集[0: dt: input_size×dt]的数据)                                                           | `20` |
-| **output_size** | 预测时间序列长度 | 整数 (示例: 10 = 如果从输入0时刻开始计算，预测[input_size×dt+offset×dt: dt: input_size×dt+(offset+output_size)×dt]的数据) | `10` |
-| **offset** | 预测窗口时间偏移量 | 整数 (示例: 36 = 作为窗口偏置加速模型收敛跳过模型预测的时间窗口，[input_size×dt: dt: input_size×dt+offset×dt])                  | `36` |
-| **batch_size** | 训练批大小 | 整数                                                                                                  | `1024` |
-| **test_ratio** | 测试集比例 | 0-1之间的浮点数                                                                                           | `0.2` |
-| **epochs** | 训练轮数 | 整数                                                                                                  | `1000` |
-| **lr** | 学习率 | 浮点数                                                                                                 | `0.001` |
-| **patience** | 早停机制等待轮数 | 整数                                                                                                  | `30` |
-| **model_type** | 使用的模型类型 | `'DualBranchTimeSeriesPredictor'`, `'vane_transformer'`                                             | `'DualBranchTimeSeriesPredictor'` |
-| **total_transformer_save_path** | 完整模型保存路径 | 文件路径                                                                                                | `'model/vane_model/total_Predictor.pth'` |
-| **vane_transformer_save_path** | 能量机关模型保存路径 | 文件路径                                                                                                | `'model/vane_model/vane_Predictor.pth'` |
-| **d_model** | Transformer特征维度 | 整数 (建议值: 256-512)                                                                                   | `256` |
-| **n_heads** | 注意力机制头数 | 整数 (常用2的幂次)                                                                                         | `8` |
-| **d_ff** | 前馈网络维度 | 整数 (能量机关建议256，自瞄建议512)                                                                              | `512` |
-| **num_layers** | Transformer编码器层数 | 整数 (通常3-6层)                                                                                         | `3` |
-| **eta_min** | 余旋退火最小学习率 | 浮点数                                                                                                 | `0.0000001` |
-| **data_mode** | 数据类型模式 | `'txt'`(自建数据集), `'vane'`(能量机关数据), `'armor'`(装甲板数据)                                                  | `'txt'` |
-| **unit** | 数据单位 | `'mm'`(毫米), `'m'`(米)                                                                                | `'mm'` |
-| **vision** | 预测模式是否显示可视化 | 布尔值                                                                                                 | `False` |
-| **sample** | 数据采样数量 | 整数或`None`(全部数据)                                                                                     | `None` |
+| **data_path** | 数据集文件路径 | 文件路径字符串                                                                                                    | `'model/datasets/processed_log.txt'` |
+| **feature_dim** | 数据特征维度 | `7`(t,x,y,z,rot), `6`(x,y,z,rx,ry,rz), `4`(t,x,y,z), `3`(x,y,z)                                            | `3` |
+| **input_size** | 输入时间序列长度 | 整数 (示例: 20 =  收集[0: dt: input_size×dt]的数据)                                                                 | `20` |
+| **output_size** | 预测时间序列长度 | 整数 (示例: 10 = 如果从输入0时刻开始计算，预测[input_size×dt+offset×dt: dt: input_size×dt+(offset+output_size)×dt]的数据)       | `10` |
+| **offset** | 预测窗口时间偏移量 | 整数 (示例: 36 = 作为窗口偏置加速模型收敛跳过模型预测的时间窗口，[input_size×dt: dt: input_size×dt+offset×dt])                         | `36` |
+| **batch_size** | 训练批大小 | 整数                                                                                                         | `1024` |
+| **test_ratio** | 测试集比例 | 0-1之间的浮点数                                                                                                  | `0.2` |
+| **epochs** | 训练轮数 | 整数                                                                                                         | `1000` |
+| **lr** | 学习率 | 浮点数                                                                                                        | `0.001` |
+| **patience** | 早停机制等待轮数 | 整数                                                                                                         | `30` |
+| **model_type** | 使用的模型类型 | `'DualBranchTimeSeriesPredictor'`, `'vane_transformer'`                                                    | `'DualBranchTimeSeriesPredictor'` |
+| **total_transformer_save_path** | 完整模型保存路径 | 文件路径                                                                                                       | `'model/vane_model/total_Predictor.pth'` |
+| **vane_transformer_save_path** | 能量机关模型保存路径 | 文件路径                                                                                                       | `'model/vane_model/vane_Predictor.pth'` |
+| **d_model** | Transformer特征维度 | 整数 (建议值: 256-512)                                                                                          | `256` |
+| **n_heads** | 注意力机制头数 | 整数 (常用2的幂次)                                                                                                | `8` |
+| **d_ff** | 前馈网络维度 | 整数 (能量机关建议256，自瞄建议512，也可以只训练一个自瞄和能量机关的整体512，不想调参就默认QWQ512)                                                 | `512` |
+| **num_layers** | Transformer编码器层数 | 整数 (通常3-6层)                                                                                                | `3` |
+| **eta_min** | 余旋退火最小学习率 | 浮点数                                                                                                        | `0.0000001` |
+| **data_mode** | 数据类型模式 | `'txt'`(自建数据集), `'vane'`(能量机关数据), `'armor'`(装甲板数据)                                                         | `'txt'` |
+| **unit** | 数据单位 | `'mm'`(毫米), `'m'`(米)                                                                                       | `'mm'` |
+| **vision** | 预测模式是否显示可视化 | 布尔值                                                                                                        | `False` |
+| **sample** | 数据采样数量 | 整数或`None`(全部数据)                                                                                            | `None` |
 
 # 快速上手指南之c++篇
 - ### *c++ 环境部署* 请拥有cmake,opencv以及openvino
