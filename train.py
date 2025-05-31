@@ -117,7 +117,7 @@ def create_dataset(data, input_dim=3, input_size=10, output_size=10, offset=40, 
     dataset = np.array(sequences)
     inputs, labels = generator.split_window(dataset)
     # 关键修改：对每个窗口减去其输入部分的起始点
-    if input_dim == 3 or input_dim == 4:
+    if input_dim == 3 or input_dim == 4 or input_dim==6:
         base_points = inputs[:, 0, :]  # 取每个输入窗口的第一个点 [B, 3]
         base_points = base_points[:, np.newaxis, :]  # 扩展维度 [B, 1, 3]
 
