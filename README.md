@@ -84,9 +84,9 @@ cmake.. && make -j8 && ./Total3DAutoAim_CPPInference
 - loss.py是模型的损失函数代码，包含了模型的损失函数的定义。
 - export.py是模型的导出openvino模型的代码，包含了模型的导出过程。
 - utils是模型的工具函数代码，包含了模型的工具函数的定义。其中generate_dataset.py和generate_dataset_vane.py分别是自瞄模拟数据集和能量机关模拟数据的生成代码。
-- model是模型的目录，包含了模型的定义和数据集的处理代码。其中datasets目录下包含了数据集，processed_log.txt是一个示例
+- model是模型的目录，包含了训练好的测试模型，当然只是一种a和w的大符情况简单测试。其中datasets目录下包含了数据集，processed_log.txt是一个示例
 数据集文件该数据集是能量机关大符的数据集x轴抖动±200mm,y和z抖动在±40mm左右所以loss理论最优是小于43,200但也不小太多 ，
-可能是这个数据集的x轴太抖了就是深度太抖，但是模型仍旧滤波。
+可能是这个数据集的x轴太抖了就是深度太抖，但是模型仍旧滤波，效果很不错。
 - utils/vision_dataset.py可以显示北理珠友情提供的大符数据集的3d可视化。
 - 
 # ⭐️模型原理篇(不想了解的可以跳过了QWQ)
