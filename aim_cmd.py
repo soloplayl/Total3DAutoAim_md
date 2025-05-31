@@ -69,6 +69,7 @@ default_config = {
     'mode': 'train',  # train/predict/export/vane_generate/armor_generate 采用训练模式/预测模式/导出模型/能量机关数据生成/自瞄装甲板数据生成
     'data_path': 'model/datasets/processed_log.txt', # 数据集路径
     'feature_dim': 3,  # 特征维度7是:t, x, y, z, rot(3 dims) 4是t, x, y, z 3是x, y, z
+    'reference': False,  # 是否有固定参考点
     'input_size': 20,  # 输入窗口大小 dt=0.0125 t = 20*0.0125=0.25s
     'output_size': 10,  # 输出窗口大小 pred_len=10 offset=36 dt=0.0125 pred_t=(36+10)*0.0125=0.45s+0.125s=0.575s
     'offset': 36,  # 预测窗口偏置
@@ -88,7 +89,7 @@ default_config = {
     'data_mode': 'txt',  # vane/armor/txt 对应vane_generate/armor_generate/自己的txt文件训练集
     'unit': 'mm',  # 数据单位 mm/m
     'vision': False,  # mode=predict的参数用于显示图像
-    'sample': None # 采样数，None表示全部数据mode=predict的参数,在生成数据集里面表示生成样本数
+    'sample': None, # 采样数，None表示全部数据mode=predict的参数,在生成数据集里面表示生成样本数
 }
 
 # --- 冻结配置字典（0表示冻结，1表示可训练）---
@@ -165,7 +166,7 @@ if __name__ == "__main__":
         et.export_init()
     if config['mode'] == 'vane_generate':
         dataset = gdvane.generate_dataset(config['sample'], gdvane.CONFIG)
-        np.savez_compressed('./model/datasets/vane_dataset'+str(config['sample'])+'.npz', **dataset)
+        np.savez_compressed(config['data_path']+str(config['sample'])+'.npz', **dataset)
     if config['mode'] == 'armor_generate':
         dataset = gdarmor.generate_dataset(config['sample'], gdarmor.CONFIG)
-        np.savez_compressed('./model/datasets/armor_dataset'+str(config['sample'])+'.npz', **dataset)
+        np.savez_compressed(config['data_path']+str(config['sample'])+'.npz', **dataset)

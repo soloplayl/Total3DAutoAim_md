@@ -1,3 +1,6 @@
+# ⭐️ **小白也能快速上手的全新(无需参考点, 基于物理约束，能量机关和自瞄均可预测)统一预测深度学习模型**
+## ⭐️ **难道操作手还需要多一个按键选择自瞄还是能量机关？视觉还需要区分大小符以及写冗长的代码来判断旋转方向？小陀螺大符难道还要单独写EKF最小二乘以及PSO模型吗？**
+### ⭐️ **现在统统不需要，即见即可预测，好try的不得了，快来试试吧！**
 # *快速上手指南之python篇*
 - ### *python 环境部署*
 - 安装miniconda
@@ -10,9 +13,9 @@
 ```bash
 python aim_cmd.py -h 
 ```
-- 训练自己的数据集请保存文本格式数据集，支持三种数据集格式第一种[时间戳**t**, 自身车辆坐标系下的**x**, 自身车辆坐标系下的**y**, 自身车辆坐标系下的**z**, 旋转向量**rot**]单位默认是
+- 训练自己的数据集请保存文本格式数据集，支持四种数据集格式第一种[时间戳**t**, 自身车辆坐标系下的**x**, 自身车辆坐标系下的**y**, 自身车辆坐标系下的**z**, 旋转向量**rot**]单位默认是
 [s, mm, mm, mm, rad]的n行7列的txt格式数据集, 第二种是[t,x,y,z]的n行4列的txt格式数据集，
-第三种是[x,y,z]的n行3列txt格式数据集。对应的要改**feature_dim**=7/4/3。
+第三种是[x,y,z]的n行3列txt格式数据集，第四种是已知旋转中心的坐标，或者已知一个固定参考点(雷达坐标系)[x, y, z, 参考点x, 参考点y, 参考点z]。对应的要改**feature_dim**=7/4/3/6。
 - 下面展示采用[x,y,z]数据集的命令行，这种最方便。**data_path**就是你保存数据集的相对地址或者绝对地址。
 **unit**=mm代表你的数据单位是mm，如果是m请使用**unit**=m具体参数详细意思参考aim_cmd.py的config介绍。
 ```bash
@@ -26,38 +29,39 @@ python aim_cmd.py mode=predict data_path=model/datasets/processed_log.txt unit=m
 ```bash
 python aim_cmd.py mode=export data_path=model/datasets/processed_log.txt model_path=model/Total_predictor.pth 
 ```
-- 如果没有自己的数据集也可以仿真生成数据集，下面展示如何生成装甲板数据集和能量机关数据集
+- 如果没有自己的数据集也可以仿真生成数据集，下面展示如何生成装甲板数据集和能量机关数据集,但别忘记data_mode=vane_generate/armor_generate
 ```bash
 python aim_cmd.py mode=vane_generate data_path=model/datasets/processed_log.txt unit=mm model_path=model/Total_predictor.pth
+python aim_cmd.py mode=train data_mode=vane_generate input_dim=3 input_size=20 outputsize=10 offset=36 data_path=model/datasets/processed_log.txt unit=mm model_path=model/Total_predictor.pth
 ```
 - **注:** 也可以直接对aim_cmd.py的default_config进行修改，修改后直接运行aim_cmd.py即可。
 - ## *cmd配置参数说明*
 
-| 参数名称 | 含义说明 | 可选值/格式 | 默认值 |
-|---------|---------|-------------|-------|
+| 参数名称 | 含义说明 | 可选值/格式                                                                                                     | 默认值 |
+|---------|---------|------------------------------------------------------------------------------------------------------------|-------|
 | **mode** | 运行模式 | `'train'`(训练), `'predict'`(预测), `'export'`(导出模型), `'vane_generate'`(能量机关数据生成), `'armor_generate'`(装甲板数据生成) | `'train'` |
-| **data_path** | 数据集文件路径 | 文件路径字符串 | `'model/datasets/processed_log.txt'` |
-| **feature_dim** | 数据特征维度 | `7`(t,x,y,z,rot), `4`(t,x,y,z), `3`(x,y,z) | `3` |
-| **input_size** | 输入时间序列长度 | 整数 (示例: 20 = 20×0.0125s = 0.25s) | `20` |
-| **output_size** | 预测时间序列长度 | 整数 (示例: 10 = 10×0.0125s = 0.125s) | `10` |
-| **offset** | 预测窗口时间偏移量 | 整数 (示例: 36 = 36×0.0125s = 0.45s) | `36` |
-| **batch_size** | 训练批大小 | 整数 | `1024` |
-| **test_ratio** | 测试集比例 | 0-1之间的浮点数 | `0.2` |
-| **epochs** | 训练轮数 | 整数 | `1000` |
-| **lr** | 学习率 | 浮点数 | `0.001` |
-| **patience** | 早停机制等待轮数 | 整数 | `30` |
-| **model_type** | 使用的模型类型 | `'DualBranchTimeSeriesPredictor'`, `'vane_transformer'` | `'DualBranchTimeSeriesPredictor'` |
-| **total_transformer_save_path** | 完整模型保存路径 | 文件路径 | `'model/vane_model/total_Predictor.pth'` |
-| **vane_transformer_save_path** | 能量机关模型保存路径 | 文件路径 | `'model/vane_model/vane_Predictor.pth'` |
-| **d_model** | Transformer特征维度 | 整数 (建议值: 256-512) | `256` |
-| **n_heads** | 注意力机制头数 | 整数 (常用2的幂次) | `8` |
-| **d_ff** | 前馈网络维度 | 整数 (能量机关建议256，自瞄建议512) | `512` |
-| **num_layers** | Transformer编码器层数 | 整数 (通常3-6层) | `3` |
-| **eta_min** | 余旋退火最小学习率 | 浮点数 | `0.0000001` |
-| **data_mode** | 数据类型模式 | `'txt'`(自建数据集), `'vane'`(能量机关数据), `'armor'`(装甲板数据) | `'txt'` |
-| **unit** | 数据单位 | `'mm'`(毫米), `'m'`(米) | `'mm'` |
-| **vision** | 预测模式是否显示可视化 | 布尔值 | `False` |
-| **sample** | 数据采样数量 | 整数或`None`(全部数据) | `None` |
+| **data_path** | 数据集文件路径 | 文件路径字符串                                                                                                    | `'model/datasets/processed_log.txt'` |
+| **feature_dim** | 数据特征维度 | `7`(t,x,y,z,rot), `6`(x,y,z,rx,ry,rz), `4`(t,x,y,z), `3`(x,y,z)                                            | `3` |
+| **input_size** | 输入时间序列长度 | 整数 (示例: 20 = 20×0.0125s = 0.25s)                                                                           | `20` |
+| **output_size** | 预测时间序列长度 | 整数 (示例: 10 = 10×0.0125s = 0.125s)                                                                          | `10` |
+| **offset** | 预测窗口时间偏移量 | 整数 (示例: 36 = 36×0.0125s = 0.45s)                                                                           | `36` |
+| **batch_size** | 训练批大小 | 整数                                                                                                         | `1024` |
+| **test_ratio** | 测试集比例 | 0-1之间的浮点数                                                                                                  | `0.2` |
+| **epochs** | 训练轮数 | 整数                                                                                                         | `1000` |
+| **lr** | 学习率 | 浮点数                                                                                                        | `0.001` |
+| **patience** | 早停机制等待轮数 | 整数                                                                                                         | `30` |
+| **model_type** | 使用的模型类型 | `'DualBranchTimeSeriesPredictor'`, `'vane_transformer'`                                                    | `'DualBranchTimeSeriesPredictor'` |
+| **total_transformer_save_path** | 完整模型保存路径 | 文件路径                                                                                                       | `'model/vane_model/total_Predictor.pth'` |
+| **vane_transformer_save_path** | 能量机关模型保存路径 | 文件路径                                                                                                       | `'model/vane_model/vane_Predictor.pth'` |
+| **d_model** | Transformer特征维度 | 整数 (建议值: 256-512)                                                                                          | `256` |
+| **n_heads** | 注意力机制头数 | 整数 (常用2的幂次)                                                                                                | `8` |
+| **d_ff** | 前馈网络维度 | 整数 (能量机关建议256，自瞄建议512)                                                                                     | `512` |
+| **num_layers** | Transformer编码器层数 | 整数 (通常3-6层)                                                                                                | `3` |
+| **eta_min** | 余旋退火最小学习率 | 浮点数                                                                                                        | `0.0000001` |
+| **data_mode** | 数据类型模式 | `'txt'`(自建数据集), `'vane'`(能量机关数据), `'armor'`(装甲板数据)                                                         | `'txt'` |
+| **unit** | 数据单位 | `'mm'`(毫米), `'m'`(米)                                                                                       | `'mm'` |
+| **vision** | 预测模式是否显示可视化 | 布尔值                                                                                                        | `False` |
+| **sample** | 数据采样数量 | 整数或`None`(全部数据)                                                                                            | `None` |
 
 # 快速上手指南之c++篇
 - ### *c++ 环境部署* 请拥有cmake,opencv以及openvino
@@ -68,13 +72,13 @@ cmake.. && make -j8 && ./Total3DAutoAim_CPPInference
 ```
 
 # 代码的结构
+- aim_cmd.py是模型的命令行调用代码，包含了模型的训练，预测，导出,生成模拟数据集功能。
 - block.py是包含两种预测模型的主体代码，包含了模型的定义。
-- armor_train.py是自瞄和能量机关统一可以模型的训练代码，包含了模型的训练和验证过程。
-- vane_train.py是推荐训练能量机关模型的训练代码其中可以选择训练能量机关模型或者统一模型(未采用旋转向量当特征输入，可自行启用)，两者都均收敛，但是统一模型参数较大，能量机关模型参数较小，且能量机关模型的预测精度更高。
-前提是已知圆心坐标和待击打中心目标坐标，可以通过进行归一化坐标使模型更好学习击打能量机关的模型代码(也可以未知R标当自瞄打，但精度不知道)，该模型更加轻量化包含了模型的训练和验证过程。
+- train.py是自瞄和能量机关统一可以模型的训练代码，包含了模型的训练和验证过程。
+已知固定参考点或者待击打中心目标坐标(能量机关)，可以通过进行归一化坐标使模型更好学习击打目标。(也可以未知R标当自瞄打，在真实数据集上精度会差个4mm左右)
+如果设置model_type=vane_transformer此模型更加轻量化更加适合能量机关有参考点，但需要一个固定参考点才能完美收敛，注意需要进行归一化坐标。
+如果设置model_type=DualBranchTimeSeriesPredictor也就是默认的模型，坐标单位要是mm，如果是m请选择unit=m,且该模型可以无参考点预测自瞄和能量机关效果毫不逊色有参考点。
 - loss.py是模型的损失函数代码，包含了模型的损失函数的定义。
-- armor_predicted.py是统一模型的测试代码，包含了模型的测试和评估过程。
-- vane_predicted.py是能量机关模型和统一模型(未采用旋转向量当特征输入，可自行启用)的测试代码，包含了模型的测试和评估过程。
 - export.py是模型的导出openvino模型的代码，包含了模型的导出过程。
 - utils是模型的工具函数代码，包含了模型的工具函数的定义。其中generate_dataset.py和generate_dataset_vane.py分别是自瞄模拟数据集和能量机关模拟数据的生成代码。
 

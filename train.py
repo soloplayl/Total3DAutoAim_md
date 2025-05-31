@@ -11,7 +11,6 @@ import pandas as pd
 import argparse
 
 
-
 # ==================== 1. 数据预处理 ====================
 
 class WindowGenerator:
@@ -19,11 +18,11 @@ class WindowGenerator:
         self.input_width = input_width  # 输入窗口大小 (n)
         self.label_width = label_width  # 预测窗口大小 (n)
         self.offsite = offsite  # 预测窗口偏置
-        self.input_dim = input_dim # 输入特征维度
+        self.input_dim = input_dim  # 输入特征维度
 
     def split_window(self, features):
         inputs = features[:, :self.input_width, :self.input_dim]
-        if self.input_dim == 3:
+        if self.input_dim == 3 or self.input_dim == 6:
             labels = features[:, self.input_width + self.offsite: self.input_width + self.offsite + self.label_width,
                      :3]  # 只取xyz作为label
         else:
@@ -31,7 +30,8 @@ class WindowGenerator:
                      1:4]  # 只取xyz作为label
         return inputs, labels
 
-def create_dataset(data, input_dim=3, input_size=10, output_size=10, offset=40, type='vane_generate',unit='mm'):
+
+def create_dataset(data, input_dim=3, input_size=10, output_size=10, offset=40, type='vane_generate', unit='mm'):
     """创建时间窗口数据集"""
     generator = WindowGenerator(
         input_width=input_size,
@@ -43,45 +43,55 @@ def create_dataset(data, input_dim=3, input_size=10, output_size=10, offset=40, 
     print("\033[93m默认:t单位s，xyz单位mm，rot单位rad\033[0m")
     print("\033[93m如果输入是m请修改unit参数为'm'，如果输入是mm请忽略...\033[0m")
     if type == 'vane_generate':
-        x_diff = (np.cos(data['theta']) * np.sin(data['phi']))[:, :,np.newaxis]
+        x_diff = (np.cos(data['theta']) * np.sin(data['phi']))[:, :, np.newaxis]
         y_diff = (np.cos(data['theta']) * np.cos(data['phi']))[:, :, np.newaxis]
-        z_diff = (np.sin(data['theta']))[:,:, np.newaxis]
+        z_diff = (np.sin(data['theta']))[:, :, np.newaxis]
         # 使用 np.concatenate 按最后一个维度拼接
         features = np.concatenate([x_diff * 1000, y_diff * 1000, z_diff * 1000], axis=-1)
     elif type == 'txt':
-        if input_dim==3:
+        if input_dim == 3:
             x_diff = (data[..., 0])[..., np.newaxis]
             y_diff = (data[..., 1])[..., np.newaxis]
             z_diff = (data[..., 2])[..., np.newaxis]
             # 使用 np.concatenate 按最后一个维度拼接
-            if unit=='m':
+            if unit == 'm':
                 features = np.concatenate([x_diff * 1000, y_diff * 1000, z_diff * 1000], axis=-1)
-            elif unit=='mm':
+            elif unit == 'mm':
                 features = np.concatenate([x_diff, y_diff, z_diff], axis=-1)
             else:
                 raise ValueError(f"Unsupported unit: {unit}. Use 'm' or 'mm'.")
-        elif input_dim==4:
-            t_diff = (data[...,0])[..., np.newaxis]
-            x_diff = (data[...,1])[..., np.newaxis]
-            y_diff = (data[...,2])[..., np.newaxis]
-            z_diff = (data[...,3])[..., np.newaxis]
+        elif input_dim == 4:
+            t_diff = (data[..., 0])[..., np.newaxis]
+            x_diff = (data[..., 1])[..., np.newaxis]
+            y_diff = (data[..., 2])[..., np.newaxis]
+            z_diff = (data[..., 3])[..., np.newaxis]
             # 使用 np.concatenate 按最后一个维度拼接
-            if unit=='m':
-                features = np.concatenate([t_diff,x_diff * 1000, y_diff * 1000, z_diff * 1000], axis=-1)
-            elif unit=='mm':
-                features = np.concatenate([t_diff,x_diff, y_diff, z_diff], axis=-1)
+            if unit == 'm':
+                features = np.concatenate([t_diff, x_diff * 1000, y_diff * 1000, z_diff * 1000], axis=-1)
+            elif unit == 'mm':
+                features = np.concatenate([t_diff, x_diff, y_diff, z_diff], axis=-1)
             else:
                 raise ValueError(f"Unsupported unit: {unit}. Use 'm' or 'mm'.")
-        elif input_dim==7:
-            t_diff = (data[...,0])[..., np.newaxis]
-            x_diff = (data[...,1])[..., np.newaxis]
-            y_diff = (data[...,2])[..., np.newaxis]
-            z_diff = (data[...,3])[..., np.newaxis]
-            rot = (data[...,4:7])[..., np.newaxis]
-            if unit=='m':
-                features = np.concatenate([t_diff,x_diff * 1000, y_diff * 1000, z_diff * 1000,rot], axis=-1)
+        elif input_dim == 6:
+            x_diff = (data[..., 1])[..., np.newaxis] - (data[..., 4])[..., np.newaxis]
+            y_diff = (data[..., 2])[..., np.newaxis] - (data[..., 5])[..., np.newaxis]
+            z_diff = (data[..., 3])[..., np.newaxis] - (data[..., 6])[..., np.newaxis]
+            if unit == 'm':
+                features = np.concatenate([x_diff * 1000, y_diff * 1000, z_diff * 1000], axis=-1)
             elif unit == 'mm':
-                features = np.concatenate([t_diff,x_diff, y_diff, z_diff,rot], axis=-1)
+                features = np.concatenate([x_diff, y_diff, z_diff], axis=-1)
+            else:
+                raise ValueError(f"Unsupported unit: {unit}. Use 'm' or 'mm'.")
+        elif input_dim == 7:
+            t_diff = (data[..., 0])[..., np.newaxis]
+            x_diff = (data[..., 1])[..., np.newaxis]
+            y_diff = (data[..., 2])[..., np.newaxis]
+            z_diff = (data[..., 3])[..., np.newaxis]
+            rot = (data[..., 4:7])[..., np.newaxis]
+            if unit == 'm':
+                features = np.concatenate([t_diff, x_diff * 1000, y_diff * 1000, z_diff * 1000, rot], axis=-1)
+            elif unit == 'mm':
+                features = np.concatenate([t_diff, x_diff, y_diff, z_diff, rot], axis=-1)
             else:
                 raise ValueError(f"Unsupported unit: {unit}. Use 'm' or 'mm'.")
         else:
@@ -93,7 +103,7 @@ def create_dataset(data, input_dim=3, input_size=10, output_size=10, offset=40, 
         features = np.concatenate([x_diff, y_diff, z_diff], axis=-1)
     else:
         raise ValueError(f"Unsupported data type: {type}")
-    print("x_diff:",x_diff.shape)
+    print("x_diff:", x_diff.shape)
 
     num_samples, num_points, _ = features.shape  # 获取处理后的实际特征维度
     window_length = input_size + offset + output_size  # 例如90
@@ -107,19 +117,19 @@ def create_dataset(data, input_dim=3, input_size=10, output_size=10, offset=40, 
     dataset = np.array(sequences)
     inputs, labels = generator.split_window(dataset)
     # 关键修改：对每个窗口减去其输入部分的起始点
-    if input_dim==3 or input_dim==4:
+    if input_dim == 3 or input_dim == 4:
         base_points = inputs[:, 0, :]  # 取每个输入窗口的第一个点 [B, 3]
         base_points = base_points[:, np.newaxis, :]  # 扩展维度 [B, 1, 3]
 
         # 输入/标签统一减去基准点
         inputs = inputs - base_points
         labels = labels - base_points
-    elif input_dim==7:
+    elif input_dim == 7:
         base_points = inputs[:, 0, :4]
         base_points = base_points[:, np.newaxis, :]
         # 输入/标签统一减去基准点
         inputs[..., :4] = inputs[..., :4] - base_points
-        output_size[... :4] = labels[..., :4] - base_points
+        output_size[...:4] = labels[..., :4] - base_points
     else:
         raise ValueError(f"Unsupported input dimension: {input_dim}")
 
@@ -181,7 +191,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, num_epoch
                 pred_coords, gt_coords,
             )
 
-
             total_loss.backward()
             optimizer.step()
             epoch_train_loss += total_loss.item()
@@ -216,8 +225,6 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, num_epoch
                 epoch_val_loss += val_loss.item()
                 epoch_val_coord_loss += _loss_coord.item()
 
-
-
         avg_val_loss = epoch_val_loss / len(val_loader)
         avg_val_coord_loss = epoch_val_coord_loss / len(val_loader)
         val_losses.append(avg_val_loss)
@@ -232,7 +239,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, num_epoch
               f"LR: {optimizer.param_groups[0]['lr']:.2e}\n"
               f"Train => Coord: {avg_train_coord_loss:.4f} | "
               f"Total: {avg_train_loss:.4f}\n"
-              
+
               f"Val   => Coord: {avg_val_coord_loss:.4f} |"
               f"Total: {avg_val_loss:.4f}\n"
               )
@@ -286,16 +293,16 @@ config = {
     'epochs': 1000,
     'lr': 1e-3,
     'patience': 30,
-    'model_type': 'DualBranchTimeSeriesPredictor', # vane_transformer/DualBranchTimeSeriesPredictor
+    'model_type': 'DualBranchTimeSeriesPredictor',  # vane_transformer/DualBranchTimeSeriesPredictor
     'total_transformer_save_path': 'model/vane_model/total_Predictor.pth',
     'vane_transformer_save_path': 'model/vane_model/vane_Predictor.pth',
     'd_model': 256,
     'n_heads': 8,
-    'd_ff': 512, # 前馈网络维度这个ffn层设为512的的话建议训练所有状态学习，单学习能量机关256即可，如果预测自瞄建议512
+    'd_ff': 512,  # 前馈网络维度这个ffn层设为512的的话建议训练所有状态学习，单学习能量机关256即可，如果预测自瞄建议512
     'num_layers': 3,
-    'eta_min' : 1e-7, # 余旋退火参数
-    'data_mode': 'txt', # vane/armor/txt 对应vane_generate/armor_generate/自己的txt文件训练集
-    'unit':'mm', # 数据单位 mm/m
+    'eta_min': 1e-7,  # 余旋退火参数
+    'data_mode': 'txt',  # vane/armor/txt 对应vane_generate/armor_generate/自己的txt文件训练集
+    'unit': 'mm',  # 数据单位 mm/m
     'vision': False,  # preict显示图像
     'sample': None
 }
@@ -305,6 +312,7 @@ freeze_config = {
     "class_fc": 0,  # 分类分支
     "pre_coords": 1  # 位置分支
 }
+
 
 def train_init():
     print(config['patience'])
@@ -422,7 +430,7 @@ def train_init():
         device=device,
     )
 
+
 # ==================== 6. 执行流程 ====================
 if __name__ == "__main__":
-   train_init()
-
+    train_init()
