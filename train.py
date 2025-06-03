@@ -31,7 +31,7 @@ class WindowGenerator:
         return inputs, labels
 
 
-def create_dataset(data, input_dim=3, input_size=10, output_size=10, offset=40, type='vane_generate', unit='mm'):
+def create_dataset(data, input_dim=3, input_size=10, output_size=10, offset=40, type='vane_generate', unit='mm', mode='train'):
     """创建时间窗口数据集"""
     generator = WindowGenerator(
         input_width=input_size,
@@ -133,7 +133,7 @@ def create_dataset(data, input_dim=3, input_size=10, output_size=10, offset=40, 
     else:
         raise ValueError(f"Unsupported input dimension: {input_dim}")
 
-    return inputs, labels
+    return inputs, labels, base_points
 
 
 # ==================== 2. 数据集类 ====================
@@ -326,13 +326,13 @@ def train_init():
         # 重塑形状
         data = numpy_data.reshape(1, data.shape[0], data.shape[1])
         print("data.shape:", data.shape)
-        inputs, labels = create_dataset(data, input_dim=config['feature_dim'], input_size=config['input_size'],
+        inputs, labels, _ = create_dataset(data, input_dim=config['feature_dim'], input_size=config['input_size'],
                                         output_size=config['output_size'],
                                         offset=config['offset'], type='txt', unit=config['unit'])
     elif config['data_mode'] == 'vane':
         data = np.load(config['data_path'])
         print('data length:', len(data['theta']))
-        inputs, labels = create_dataset(data, input_dim=config['feature_dim'], input_size=config['input_size'],
+        inputs, labels, _ = create_dataset(data, input_dim=config['feature_dim'], input_size=config['input_size'],
                                         output_size=config['output_size'],
                                         offset=config['offset'], type='vane_generate', unit='m')
     elif config['data_mode'] == 'armor':
