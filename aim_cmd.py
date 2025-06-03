@@ -27,7 +27,7 @@ class ConfigParser:
         # 解析YOLO风格参数
         config_updates = {}
         for param in args.params:
-            match = re.match(r'([a-zA-Z_]\w*)=([\w.+-]+)', param)
+            match = re.match(r'([a-zA-Z_]\w*)=([\w./\\:+-]+)', param)
             if match:
                 key, value = match.groups()
                 # 尝试转换数值类型
