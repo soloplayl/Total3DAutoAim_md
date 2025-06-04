@@ -9,7 +9,7 @@ import time
 import loss
 import pandas as pd
 import argparse
-
+from scipy.ndimage import uniform_filter1d  # 添加均值滤波函数
 
 # ==================== 1. 数据预处理 ====================
 
@@ -31,7 +31,7 @@ class WindowGenerator:
         return inputs, labels
 
 
-def create_dataset(data, input_dim=3, input_size=10, output_size=10, offset=40, type='vane_generate', unit='mm', mode='train'):
+def create_dataset(data, input_dim=3, input_size=10, output_size=10, offset=40, type='vane_generate', unit='mm', mode='train',mean=False):
     """创建时间窗口数据集"""
     generator = WindowGenerator(
         input_width=input_size,
@@ -50,6 +50,11 @@ def create_dataset(data, input_dim=3, input_size=10, output_size=10, offset=40, 
         features = np.concatenate([x_diff * 1000, y_diff * 1000, z_diff * 1000], axis=-1)
     elif type == 'txt':
         if input_dim == 3:
+            # 对x轴应用窗口为10的均值滤波
+            x_data = data[..., 0]
+            if mean:
+                # 使用均值滤波平滑数据
+                x_data = uniform_filter1d(x_data, size=10, axis=-1, mode='nearest')
             x_diff = (data[..., 0])[..., np.newaxis]
             y_diff = (data[..., 1])[..., np.newaxis]
             z_diff = (data[..., 2])[..., np.newaxis]
@@ -338,7 +343,7 @@ def train_init():
     elif config['data_mode'] == 'armor':
         data = np.load(config['data_path'])
         print('data length:', len(data['theta']))
-        inputs, labels = create_dataset(data, input_dim=config['feature_dim'], input_size=config['input_size'],
+        inputs, labels,_ = create_dataset(data, input_dim=config['feature_dim'], input_size=config['input_size'],
                                         output_size=config['output_size'],
                                         offset=config['offset'], type='armor_generate', unit='mm')
     else:
