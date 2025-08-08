@@ -156,10 +156,10 @@ class LinearResBlock(nn.Module):
 
 
 class Encoders(nn.Module):
-    def __init__(self, d_model, n_heads, d_ff, num_layers, input_size=7,cross_feature=False):
+    def __init__(self, d_model, n_heads, d_ff, num_layers, input_dim=7,cross_feature=False):
         super(Encoders, self).__init__()
         self.cross_feature = cross_feature
-        self.fc1 = nn.Linear(input_size, d_model)
+        self.fc1 = nn.Linear(input_dim, d_model)
         self.layers = nn.ModuleList([EncoderLayer(d_model, n_heads, d_ff) for _ in range(num_layers)])
 
     def forward(self, x):
@@ -178,7 +178,6 @@ class Encoders(nn.Module):
 
             # 沿第三维度拼接 t,x,y,z,rot,tx,ty,tz
             x = torch.cat([x, x0x1, x0x2, x0x3], dim=-1)
-
         x = self.fc1(x)  # (batch_size, seq_len, d_model)
         for layer in self.layers:
             x = layer(x)
@@ -362,24 +361,34 @@ class pre_coords(nn.Module):
         return pred_coords, trans_out, rot_vec, radius_pred_expanded
 
 class DualBranchTimeSeriesPredictor(nn.Module):
-    def __init__(self, d_model=256, n_heads=8, d_ff=512, num_layers=3, input_dim=7, seq_len=10, pred_len=10):
+    def __init__(self, input_size, output_size, input_dim=4, output_dim=3,d_model=256, n_heads=8, d_ff=512, num_layers=3):
         """
         input_size: 输入时序长度（特征数可以根据实际情况扩展）
         hidden_size: 隐藏层维度
         output_steps: 预测未来的时间步数
         """
         super(DualBranchTimeSeriesPredictor, self).__init__()
-        self.input_size = seq_len
-        self.output_steps = pred_len
+        if input_size >= 80:
+            self.input_size = (input_size-10)//2//2+10
+        else:
+            self.input_size = input_size
+        self.seq_len = input_size
+        self.output_steps = output_size
+        # 线性层映射输入维度到 d_model
+        self.pool = nn.AvgPool1d(
+            kernel_size=2,  # 每2个时间步合并
+            stride=2,  # 步长为2实现压缩
+            padding=0
+        )
 
         # 叠加多个 Encoder 层
-        self.encoders = Encoders(d_model, n_heads, d_ff, num_layers,input_size=input_dim)
+        self.encoders = Encoders(d_model, n_heads, d_ff, num_layers,input_dim=input_dim)
 
         # 位置预测
-        self.pre_coords = pre_coords(seq_len, pred_len, d_model)
+        self.pre_coords = pre_coords(self.input_size,  self.output_steps, d_model)
 
         # 类别损失
-        self.class_fc = class_fc(seq_len, pred_len, d_model)
+        self.class_fc = class_fc(self.input_size,  self.output_steps, d_model)
 
     def forward(self, x):
         """
@@ -389,6 +398,15 @@ class DualBranchTimeSeriesPredictor(nn.Module):
             trans_out: 预测的平移部分
             rot_vec: 预测的3D旋转向量
         """
+        if self.seq_len >= 80:
+            x_front = x[:, :70, :]  # (batch_size, 40, input_dim)
+            x_last = x[:, 70:, :]  # (batch_size, 10, input_dim)
+            # 使用平均池化压缩前40步到20步
+            # 调整维度: (batch, seq, channels) -> (batch, channels, seq) 适配Pool1d
+            x_front = x_front.permute(0, 2, 1)
+            x_pooled = self.pool(self.pool(x_front))  # (batch_size, input_dim, 20)
+            x_pooled = x_pooled.permute(0, 2, 1)  # (batch_size, 20, input_dim)
+            x = torch.cat([x_pooled, x_last], dim=1)  # (batch_size, 30, input_dim)
         x = self.encoders(x)
         # 类别预测
         class_pred_expanded = self.class_fc(x)  # [batch, 1, 1]
@@ -400,24 +418,50 @@ class DualBranchTimeSeriesPredictor(nn.Module):
 
 ### 纯transformer
 class TimeSeriesTransformer(nn.Module):
-    def __init__(self,input_size, output_size, input_dim=4, d_model=256, n_heads=8, d_ff=256, num_layers=3):
+    def __init__(self,input_size, output_size, input_dim=4,output_dim=3, d_model=256, n_heads=8, d_ff=256, num_layers=3):
         super(TimeSeriesTransformer, self).__init__()
         self.input_size = input_size
         self.output_size = output_size
         self.d_model = d_model
 
         # 线性层映射输入维度到 d_model
+        self.pool = nn.AvgPool1d(
+            kernel_size=2,  # 每2个时间步合并
+            stride=2,  # 步长为2实现压缩
+            padding=0
+        )
+
         self.fc1 = nn.Linear(input_dim, d_model)  # 4 维（时间和坐标）-> d_model 维
 
         # 叠加多个 Encoder 层
         self.encoders = nn.ModuleList([EncoderLayer(d_model, n_heads, d_ff) for _ in range(num_layers)])
         # 线性层将 Transformer 输出变换为最终预测值（输出维度为 output_size）
         self.fc2 = nn.Linear(d_model, d_model//2)
-        self.fc_out = nn.Linear(d_model//2, 3)
+        self.fc_out = nn.Linear(d_model//2, output_dim)
+        self.pe = nn.Parameter(torch.zeros(1, input_size, d_model))
 
     def forward(self, x):
-        x = self.fc1(x)  # (batch_size, seq_len, d_model)
-        # residual = x
+        if 70> self.input_size >=50:
+            # 分割输入：前40步和后10步
+            x_front = x[:, :40, :]  # (batch_size, 40, input_dim)
+            x_last = x[:, 40:, :]  # (batch_size, 10, input_dim)
+
+            # 使用平均池化压缩前40步到20步
+            # 调整维度: (batch, seq, channels) -> (batch, channels, seq) 适配Pool1d
+            x_front = x_front.permute(0, 2, 1)
+            x_pooled = self.pool(self.pool(x_front))  # (batch_size, input_dim, 20)
+            x_pooled = x_pooled.permute(0, 2, 1)  # (batch_size, 20, input_dim)
+            x = torch.cat([x_pooled, x_last], dim=1)  # (batch_size, 30, input_dim)
+        elif self.input_size >=80:
+            x_front = x[:, :70, :]  # (batch_size, 40, input_dim)
+            x_last = x[:, 70:, :]  # (batch_size, 10, input_dim)
+            # 使用平均池化压缩前40步到20步
+            # 调整维度: (batch, seq, channels) -> (batch, channels, seq) 适配Pool1d
+            x_front = x_front.permute(0, 2, 1)
+            x_pooled = self.pool(self.pool(x_front))  # (batch_size, input_dim, 20)
+            x_pooled = x_pooled.permute(0, 2, 1)  # (batch_size, 20, input_dim)
+            x = torch.cat([x_pooled, x_last], dim=1)  # (batch_size, 30, input_dim)
+        x = self.fc1(x) + self.pe[:, :x.size(1), :]
         for encoder in self.encoders:
             x = encoder(x)  # (batch_size, seq_len, d_model)
 
@@ -427,9 +471,8 @@ class TimeSeriesTransformer(nn.Module):
         x = self.fc_out(self.fc2(x))  # (batch_size, seq_len, output_size)
 
         # 取后 output_size 个时间步作为预测结果
-        x = x[:, -self.output_size:, :]  # (batch_size, output_size, 1)
-        return x.squeeze(-1)  # (batch_size, output_size)
-
+        x = x[:, -self.output_size:, :]  # (batch_size, output_size, output_dim)
+        return x # (batch_size, output_size)
 
 # 示例用法
 if __name__ == '__main__':
