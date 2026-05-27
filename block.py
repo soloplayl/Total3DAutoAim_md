@@ -64,7 +64,7 @@ class MultiHeadAttention(nn.Module):
         v = self.wv(v).view(batch_size, -1, self.n_heads, self.d_head).transpose(1, 2)
 
         # Scaled dot-product attention
-        scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.scale)
+        scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale
         if mask is not None:
             scores = scores.masked_fill(mask == 0, -1e9)
         attn = F.softmax(scores, dim=-1)
